@@ -1,39 +1,42 @@
 import streamlit as st
 import pandas as pd
 import joblib
-import os
+import numpy as np
 
-# Check if model files exist
-if not os.path.exists("price_model.pkl") or not os.path.exists("label_encoders.pkl"):
-    st.error("Model files not found! Ensure 'price_model.pkl' and 'label_encoders.pkl' are in the project directory.")
+# Load trained models and label encoders
+try:
+    model_price = joblib.load("price_model.pkl")
+    model_discount = joblib.load("discount_model.pkl")
+    encoders = joblib.load("label_encoders.pkl")
+except FileNotFoundError:
+    st.error("Model files not found! Ensure 'price_model.pkl', 'discount_model.pkl', and 'label_encoders.pkl' are in the project directory.")
     st.stop()
 
-# Load the trained model and encoders
-model = joblib.load("price_model.pkl")
-encoders = joblib.load("label_encoders.pkl")
-
 # Streamlit UI
-st.title("🛒 Shop Price Prediction App")
-st.write("Enter product details to predict the price.")
+st.title("🛒 Shop Price & Discount Prediction")
+st.write("Enter product details to predict the selling price and discount.")
 
-# User input fields
-item_name = st.text_input("Item Name")
-category = st.selectbox("Category", ["Grocery", "Clothing", "Electronics", "Winter", "Summer", "Spring", "Fall"])
+# User inputs
+item_name = st.text_input("Enter Item Name")
+stock = st.number_input("Stock Available", min_value=1, step=1)
+seasonal_demand = st.number_input("Seasonal Demand", min_value=0, step=1)
 
-# Predict price button
-if st.button("Predict Price"):
+# Predict button
+if st.button("Predict Price & Discount"):
     try:
-        # Encode categorical data
-        category_encoded = encoders["Category"].transform([category])[0]
+        # Encode item name
+        item_encoded = encoders["Item"].transform([item_name])[0]
 
-        # Create input DataFrame
-        input_data = pd.DataFrame([[category_encoded]], columns=["Category"])
+        # Prepare input data
+        input_features = np.array([[item_encoded, stock, seasonal_demand]])
 
-        # Predict price
-        predicted_price = model.predict(input_data)[0]
+        # Predict price & discount
+        predicted_price = model_price.predict(input_features)[0]
+        predicted_discount = model_discount.predict(input_features)[0]
 
         # Display result
-        st.success(f"Estimated Price: ₹{predicted_price:.2f}")
+        st.success(f"Predicted Selling Price: ₹{predicted_price:.2f}")
+        st.success(f"Predicted Discount: ₹{predicted_discount:.2f}")
     except Exception as e:
         st.error(f"Error in prediction: {e}")
 
